@@ -1,0 +1,59 @@
+.drag-drop-wrapper {
+    width: 100%;
+    margin: 10px 0;
+}
+
+.drag-drop-zone {
+    border: 2px dashed #999;
+    border-radius: 10px;
+    padding: 25px 20px;
+    text-align: center;
+    background: #fafafa;
+    cursor: pointer;
+    transition: 0.2s ease;
+    min-width: 280px;
+}
+
+.drag-drop-zone:hover {
+    border-color: #417690;
+    background: #f3f8fb;
+}
+
+.drag-drop-zone.drag-over {
+    border-color: #417690;
+    background: #e8f4fa;
+    transform: scale(1.01);
+}
+
+.drag-drop-zone.has-file {
+    border-color: #417690;
+    background: #f0f8fc;
+}
+
+.drag-drop-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.drag-drop-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.drag-drop-text {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #777;
+}
+
+.drag-drop-file-name {
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #417690;
+}
+
+.drag-drop-zone input[type="file"] {
+    display: none;
+}
