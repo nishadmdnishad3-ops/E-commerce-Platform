@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
+import { formatPrice } from '../utils/formatPrice'
 
 function ProductDetails() {
   const { slug } = useParams()
@@ -103,6 +104,17 @@ function ProductDetails() {
     alert(`${product.name} added to cart!`)
   }
 
+  const handleBuyNow = () => {
+    const finalQuantity = Number(quantity) || 1
+
+    addToCart({
+      ...product,
+      quantity: finalQuantity,
+    })
+
+    navigate('/checkout')
+  }
+
   const handleWishlist = async () => {
     if (!localStorage.getItem('access_token')) {
       navigate('/login')
@@ -118,6 +130,11 @@ function ProductDetails() {
       }
     }
   }
+
+  const hasDiscount =
+    Number(product.discount_percentage) > 0 &&
+    product.discount_price !== null &&
+    product.discount_price !== undefined
 
   return (
     <main className="product-details">
@@ -181,13 +198,13 @@ function ProductDetails() {
         <div className="product-details-price">
 
           <strong>
-            ৳{product.discount_price || product.price}
+            {formatPrice(hasDiscount ? product.discount_price : product.price)}
           </strong>
 
-          {product.discount_percentage > 0 && (
+          {hasDiscount && (
             <>
               <del>
-                ৳{product.price}
+                {formatPrice(product.price)}
               </del>
 
               <span className="details-discount-badge">
@@ -198,9 +215,14 @@ function ProductDetails() {
 
         </div>
 
-        <p className="stock">
-          Stock: {product.stock}
-        </p>
+        <div className="product-stock-status">
+          <p className="stock">Stock: {product.stock} units</p>
+          <span
+            className={product.stock > 0 ? 'in-stock' : 'out-of-stock'}
+          >
+            {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
+          </span>
+        </div>
 
         {/* Quantity */}
         <div className="quantity-selector">
@@ -249,7 +271,21 @@ function ProductDetails() {
             : 'Out of Stock'}
         </button>
 
+        <button
+          type="button"
+          className="buy-now-details-button"
+          onClick={handleBuyNow}
+          disabled={product.stock <= 0}
+        >
+          Buy Now
+        </button>
+
       </div>
+
+      <section className="product-description">
+        <h2>Product Description</h2>
+        <p>{product.description}</p>
+      </section>
 
     </main>
   )

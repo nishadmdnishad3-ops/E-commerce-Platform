@@ -1,6 +1,7 @@
 import { Link,useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
+import { formatPrice } from '../utils/formatPrice'
 
 function ProductCard({ product }) {
   const { addToCart } = useCart()
@@ -93,16 +94,16 @@ function ProductCard({ product }) {
           {hasDiscount ? (
             <>
               <span className="discount-price">
-                ৳{product.discount_price}
+                {formatPrice(product.discount_price)}
               </span>
 
               <span className="old-price">
-                ৳{product.price}
+                {formatPrice(product.price)}
               </span>
             </>
           ) : (
             <span className="discount-price">
-              ৳{product.price}
+              {formatPrice(product.price)}
             </span>
           )}
 

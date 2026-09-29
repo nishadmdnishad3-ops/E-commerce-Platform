@@ -32,7 +32,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    product_count = serializers.SerializerMethodField()
+    product_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Category
@@ -41,8 +41,7 @@ class CategorySerializer(serializers.ModelSerializer):
             'name',
             'slug',
             'description',
+            'image',
+            'is_active',
             'product_count',
         ]
-
-    def get_product_count(self, obj):
-        return obj.products.filter(is_active=True).count()

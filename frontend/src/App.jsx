@@ -23,43 +23,60 @@ import Offers from './pages/Offers'
 import Categories from './pages/Categories'
 import CategoryProducts from './pages/CategoryProducts'
 import Contact from './pages/Contact'
+import { formatPrice } from './utils/formatPrice'
 
-function getCategoryIcon(categoryName) {
-  const name = categoryName.toLowerCase()
-
-  if (name.includes('electronic')) return '⚡'
-  if (name.includes('laptop')) return '💻'
-  if (name.includes('security')) return '📹'
-  if (name.includes('printer')) return '🖨️'
-  if (name.includes('accessor')) return '🔌'
-  if (name.includes('neckband')) return '🎧'
-  if (name.includes('airbud')) return '🎵'
-  if (name.includes('watch')) return '⌚'
-  if (name.includes('camera')) return '📷'
-  if (name.includes('phone')) return '📱'
-
-  return '🛍️'
+const categoryIcons = {
+  electronics: '⚡',
+  laptops: '💻',
+  cameras: '📷',
+  smartphones: '📱',
+  printers: '🖨️',
+  tv: '📺',
+  audio: '🔊',
+  security: '📹',
+  wearables: '⌚',
+  accessories: '🔌',
+  gaming: '🎮',
+  'home-office': '🖥️',
 }
 
-const featuredCategorySeed = [
-  { id: 'electronics', slug: 'electronics', name: 'Electronics' },
-  { id: 'laptops', slug: 'laptops', name: 'Laptops' },
-  { id: 'audio', slug: 'audio', name: 'Audio' },
-  { id: 'smartphones', slug: 'smartphones', name: 'Smartphones' },
-  { id: 'cameras', slug: 'cameras', name: 'Cameras' },
-  { id: 'security', slug: 'security', name: 'Security' },
-  { id: 'wearables', slug: 'wearables', name: 'Wearables' },
-  { id: 'printers', slug: 'printers', name: 'Printers' },
-  { id: 'accessories', slug: 'accessories', name: 'Accessories' },
-  { id: 'gaming', slug: 'gaming', name: 'Gaming' },
-  { id: 'home-office', slug: 'home-office', name: 'Home Office' },
-  { id: 'networking', slug: 'networking', name: 'Networking' },
-]
+function getCategoryIcon(category) {
+  const key = (category.slug || category.name)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+
+  return categoryIcons[key] || '📦'
+}
+
+function getCategoryImageUrl(imagePath) {
+  return new URL(imagePath, 'http://127.0.0.1:8000').toString()
+}
+
+function CategoryVisual({ category }) {
+  const [imageFailed, setImageFailed] = useState(false)
+
+  return (
+    <span className="category-icon">
+      {category.image && !imageFailed ? (
+        <img
+          className="category-image"
+          src={getCategoryImageUrl(category.image)}
+          alt=""
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        getCategoryIcon(category)
+      )}
+    </span>
+  )
+}
 
 function Home() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [categoriesError, setCategoriesError] = useState(false)
   const [latestProducts, setLatestProducts] = useState([])
   const [latestLoading, setLatestLoading] = useState(true)
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -123,46 +140,15 @@ function Home() {
         return response.json()
       })
       .then((data) => {
-        const mergedCategories = [
-          ...data,
-          ...featuredCategorySeed,
-        ].filter(
-          (category, index, array) =>
-            array.findIndex(
-              (item) =>
-                item.slug === category.slug ||
-                item.name.toLowerCase() === category.name.toLowerCase()
-            ) === index
-        )
-
-        setCategories(mergedCategories.slice(0, 12))
+        setCategories(data.filter((category) => category.is_active === true))
         setCategoriesLoading(false)
       })
       .catch((error) => {
-        console.error(error)
+        console.error('CATEGORIES ERROR:', error)
+        setCategoriesError(true)
         setCategoriesLoading(false)
       })
   }, [])
-
-  const activeProductCounts = products.reduce(
-    (counts, product) => {
-      if (product.is_active === false) {
-        return counts
-      }
-
-      const categoryId =
-        typeof product.category === 'object'
-          ? product.category?.id
-          : product.category
-
-      if (categoryId !== undefined && categoryId !== null) {
-        counts[categoryId] = (counts[categoryId] || 0) + 1
-      }
-
-      return counts
-    },
-    {}
-  )
 
   
   /*
@@ -172,14 +158,16 @@ function Home() {
     all products with images are used.
   */
   const featuredProducts = products.filter(
-    (product) =>
-      product.is_featured &&
-      product.images?.length > 0
+    (product) => product.is_featured === true
+  )
+  const displayedFeaturedProducts = featuredProducts.slice(0, 8)
+  const sliderFeaturedProducts = featuredProducts.filter(
+    (product) => product.images?.length > 0
   )
 
   const sliderProducts =
-    featuredProducts.length > 0
-      ? featuredProducts
+    sliderFeaturedProducts.length > 0
+      ? sliderFeaturedProducts
       : products.filter(
           (product) => product.images?.length > 0
         )
@@ -278,16 +266,16 @@ function Home() {
                 {currentProduct.discount_price ? (
                   <>
                     <strong>
-                      ৳{currentProduct.discount_price}
+                      {formatPrice(currentProduct.discount_price)}
                     </strong>
 
                     <del>
-                      ৳{currentProduct.price}
+                      {formatPrice(currentProduct.price)}
                     </del>
                   </>
                 ) : (
                   <strong>
-                    ৳{currentProduct.price}
+                    {formatPrice(currentProduct.price)}
                   </strong>
                 )}
 
@@ -408,23 +396,25 @@ function Home() {
     <p className="categories-loading">
       Loading categories...
     </p>
+  ) : categoriesError ? (
+    <p className="categories-loading">
+      Unable to load categories.
+    </p>
   ) : (
     <div className="categories-grid">
       {categories.map((category) => (
         <Link
           key={category.id}
-          to={`/search?category=${category.slug}`}
+          to={`/category/${category.slug}`}
           className="category-card"
         >
-          <span className="category-icon">
-            {getCategoryIcon(category.name)}
-          </span>
+          <CategoryVisual category={category} />
 
           <h3>{category.name}</h3>
 
           <p>
-            {activeProductCounts[category.id] || 0}{' '}
-            {(activeProductCounts[category.id] || 0) === 1
+            {category.product_count}{' '}
+            {category.product_count === 1
               ? 'Product'
               : 'Products'}
           </p>
@@ -474,19 +464,31 @@ function Home() {
 
       <section className="products-section">
 
-        <h2>Featured Products</h2>
+        <div className="latest-products-header">
+          <h2>Featured Products</h2>
+          <Link
+            to="/search?featured=true"
+            className="view-all-products"
+          >
+            View All →
+          </Link>
+        </div>
 
         {!loading && !error && (
-          <div className="product-grid">
-
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
-
-          </div>
+          displayedFeaturedProducts.length > 0 ? (
+            <div className="product-grid">
+              {displayedFeaturedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="latest-loading">
+              No featured products available.
+            </p>
+          )
         )}
 
       </section>

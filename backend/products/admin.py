@@ -10,6 +10,7 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ('is_active',)
     search_fields = ('name', 'slug')
     prepopulated_fields = {'slug': ('name',)}
+    fields = ('name', 'slug', 'description', 'image', 'is_active')
 
 
 @admin.register(Brand)

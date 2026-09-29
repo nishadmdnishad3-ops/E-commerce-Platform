@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 from rest_framework import generics
+from django.db.models import Count, Q
 from .models import Product, Category
 from .serializers import ProductSerializer, CategorySerializer
 
@@ -17,7 +18,17 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
     lookup_field = 'slug'
 
 class CategoryListAPIView(generics.ListAPIView):
-    queryset = Category.objects.filter(is_active=True)
+    queryset = (
+        Category.objects
+        .filter(is_active=True)
+        .annotate(
+            product_count=Count(
+                'products',
+                filter=Q(products__is_active=True)
+            )
+        )
+        .order_by('id')
+    )
     serializer_class = CategorySerializer
 
 class LatestProductListAPIView(generics.ListAPIView):

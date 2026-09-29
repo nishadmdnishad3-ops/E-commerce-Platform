@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
+import { formatPrice } from '../utils/formatPrice'
 
 
 function Navbar() {
@@ -212,9 +213,9 @@ function Navbar() {
                           </strong>
 
                           <span>
-                            ৳
-                            {product.discount_price ||
-                              product.price}
+                            {formatPrice(
+                              product.discount_price || product.price
+                            )}
                           </span>
                         </div>
 

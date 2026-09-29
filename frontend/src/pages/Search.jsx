@@ -7,6 +7,7 @@ function Search() {
 
   const query = searchParams.get('q') || ''
   const categorySlug = searchParams.get('category') || ''
+  const showFeatured = searchParams.get('featured') === 'true'
 
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -84,6 +85,9 @@ function Search() {
         !searchText ||
         searchableText.includes(searchText)
 
+      const matchesFeatured =
+        !showFeatured || product.is_featured === true
+
       /* Category */
       let matchesCategory = true
 
@@ -119,6 +123,7 @@ function Search() {
 
       return (
         matchesSearch &&
+        matchesFeatured &&
         matchesCategory &&
         matchesPrice
       )
@@ -192,7 +197,9 @@ function Search() {
       <div className="search-page-header">
 
         <h1>
-          {selectedCategoryObject
+          {showFeatured
+            ? 'Featured Products'
+            : selectedCategoryObject
             ? selectedCategoryObject.name
             : 'Search Products'}
         </h1>
@@ -202,6 +209,8 @@ function Search() {
             Search results for:
             <strong> "{query}"</strong>
           </p>
+        ) : showFeatured ? (
+          <p>Browse all featured products.</p>
         ) : selectedCategoryObject ? (
           <p>
             Products in:
