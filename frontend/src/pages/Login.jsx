@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import {
+  initializeAppleLogin,
+  initializeGoogleLogin,
+  loginWithApple,
+  loginWithGoogle,
+} from '../utils/socialAuth'
 
 function Login() {
   const [username, setUsername] = useState('')
@@ -53,12 +59,48 @@ function Login() {
       localStorage.setItem('access_token', data.access)
       localStorage.setItem('refresh_token', data.refresh)
       localStorage.setItem('username', username)
-      
+
       window.dispatchEvent(new Event('auth-change'))
 
       setSuccessMessage('Login successful!')
     } catch (error) {
       setError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setError('')
+    setLoading(true)
+
+    try {
+      const credential = await initializeGoogleLogin()
+      await loginWithGoogle(credential)
+      setSuccessMessage('Login successful!')
+    } catch (error) {
+      setError(error.message || 'Google login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAppleLogin = async () => {
+    setError('')
+    setLoading(true)
+
+    try {
+      const appleResponse = await initializeAppleLogin()
+      const identityToken = appleResponse?.authorization?.id_token || appleResponse?.id_token
+
+      if (!identityToken) {
+        throw new Error('Apple login failed. Please try again.')
+      }
+
+      await loginWithApple(identityToken, appleResponse?.user || {})
+      setSuccessMessage('Login successful!')
+    } catch (error) {
+      setError(error.message || 'Apple login failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -124,6 +166,55 @@ function Login() {
           </button>
 
         </form>
+
+        <div style={{ margin: '18px 0 12px', display: 'grid', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              width: '100%',
+              border: '1px solid #dadce0',
+              borderRadius: '999px',
+              background: '#ffffff',
+              color: '#3c4043',
+              fontWeight: 600,
+              padding: '12px 18px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
+            }}
+          >
+            <span style={{ fontSize: '18px', fontWeight: 700 }}>G</span>
+            <span>Continue with Google</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleAppleLogin}
+            disabled={loading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              width: '100%',
+              border: '1px solid #1f1f1f',
+              borderRadius: '999px',
+              background: '#111111',
+              color: '#ffffff',
+              fontWeight: 600,
+              padding: '12px 18px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <span style={{ fontSize: '18px' }}></span>
+            <span>Continue with Apple</span>
+          </button>
+        </div>
 
         <p className="auth-footer">
           Don't have an account?{' '}
