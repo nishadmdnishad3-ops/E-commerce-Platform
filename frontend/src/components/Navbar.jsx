@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { formatPrice } from '../utils/formatPrice'
+import { clearAuthData, getCurrentRole, getRoleHome } from '../utils/auth'
 
 
 function Navbar() {
@@ -20,6 +21,7 @@ function Navbar() {
   const [username, setUsername] = useState(
     localStorage.getItem('username')
   )
+  const [role, setRole] = useState(getCurrentRole() || 'customer')
 
   const searchRef = useRef(null)
 
@@ -71,6 +73,7 @@ function Navbar() {
   useEffect(() => {
     const updateAuth = () => {
       setUsername(localStorage.getItem('username'))
+      setRole(getCurrentRole() || 'customer')
     }
 
     window.addEventListener('auth-change', updateAuth)
@@ -111,15 +114,10 @@ function Navbar() {
   // LOGOUT
   // =========================
   const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('username')
-
+    clearAuthData()
     setUsername(null)
+    setRole('customer')
     clearWishlist()
-
-    window.dispatchEvent(new Event('auth-change'))
-
     navigate('/')
   }
 
@@ -276,25 +274,31 @@ function Navbar() {
                   <span className="user-avatar">👤</span>
                   <div>
                     <strong>{username}</strong>
-                    <small>Logged in</small>
+                    <small>{role.charAt(0).toUpperCase() + role.slice(1)}</small>
                   </div>
                 </div>
 
-                <Link
-                  to="/my-orders"
-                  className="dropdown-link"
-                >
-                  <span className="dropdown-action-icon" aria-hidden="true">▣</span>
-                  <span>My Orders</span>
-                </Link>
-
-                <Link
-                  to="/wishlist"
-                  className="dropdown-link"
-                >
-                  <span>Wishlist</span>
-                  <span className="dropdown-wishlist-icon" aria-hidden="true">❤️</span>
-                </Link>
+                {role === 'admin' || role === 'employee' ? (
+                  <Link to={getRoleHome(role)} className="dropdown-link">
+                    <span className="dropdown-action-icon" aria-hidden="true">▣</span>
+                    <span>{role === 'admin' ? 'Admin Dashboard' : 'Employee Dashboard'}</span>
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/my-orders" className="dropdown-link">
+                      <span className="dropdown-action-icon" aria-hidden="true">▣</span>
+                      <span>My Orders</span>
+                    </Link>
+                    <Link to="/profile" className="dropdown-link">
+                      <span className="dropdown-action-icon" aria-hidden="true">◉</span>
+                      <span>Profile</span>
+                    </Link>
+                    <Link to="/wishlist" className="dropdown-link">
+                      <span>Wishlist</span>
+                      <span className="dropdown-wishlist-icon" aria-hidden="true">❤️</span>
+                    </Link>
+                  </>
+                )}
 
                 <button
                   type="button"

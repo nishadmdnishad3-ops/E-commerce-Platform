@@ -1,9 +1,11 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     AppleLoginAPIView,
+    CustomTokenObtainPairView,
     GoogleLoginAPIView,
+    MyProfileAPIView,
     RegisterAPIView,
 )
 
@@ -16,7 +18,7 @@ urlpatterns = [
     ),
     path(
         'login/',
-        TokenObtainPairView.as_view(),
+        CustomTokenObtainPairView.as_view(),
         name='login'
     ),
     path(
@@ -29,6 +31,7 @@ urlpatterns = [
         AppleLoginAPIView.as_view(),
         name='apple-login'
     ),
+    path('profile/', MyProfileAPIView.as_view(), name='my-profile'),
     path(
         'token/refresh/',
         TokenRefreshView.as_view(),

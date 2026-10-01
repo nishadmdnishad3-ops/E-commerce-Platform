@@ -1,5 +1,46 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import UserRoleProfile
+from .roles import ensure_user_role_profile, get_user_role
+
+User = get_user_model()
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['username'] = user.username
+        token['email'] = user.email
+        token['is_staff'] = user.is_staff
+        token['is_superuser'] = user.is_superuser
+        token['role'] = get_user_role(user)
+        return token
+
+    def validate(self, attrs):
+        username = attrs.get(self.username_field, '')
+        if '@' in username:
+            user = User.objects.filter(email__iexact=username).first()
+            if user:
+                attrs[self.username_field] = user.get_username()
+
+        data = super().validate(attrs)
+        ensure_user_role_profile(self.user)
+        role = get_user_role(self.user)
+        data['username'] = self.user.username
+        data['email'] = self.user.email
+        data['is_staff'] = self.user.is_staff
+        data['is_superuser'] = self.user.is_superuser
+        data['role'] = role
+        data['user'] = {
+            'id': self.user.pk,
+            'username': self.user.username,
+            'email': self.user.email,
+            'role': role,
+        }
+        return data
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -45,5 +86,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
         )
+        UserRoleProfile.objects.create(user=user, role=UserRoleProfile.ROLE_CUSTOMER)
 
         return user

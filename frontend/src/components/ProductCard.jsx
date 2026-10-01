@@ -1,4 +1,4 @@
-import { Link,useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { formatPrice } from '../utils/formatPrice'
@@ -15,6 +15,16 @@ function ProductCard({ product }) {
   const hasDiscount =
     product.discount_percentage > 0 &&
     product.discount_price
+
+  const renderStars = (value) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+      return '☆☆☆☆☆'
+    }
+
+    const safeValue = Math.max(0, Math.min(5, Number(value)))
+    const filledStars = Math.round(safeValue)
+    return `${'★'.repeat(filledStars)}${'☆'.repeat(5 - filledStars)}`
+  }
 
   const handleBuyNow = () => {
     addToCart({
@@ -57,7 +67,6 @@ function ProductCard({ product }) {
         {isInWishlist(product.id) ? '❤️' : '♡'}
       </button>
 
-      {/* Product Image */}
       <Link
         to={`/product/${product.slug}`}
         className="product-image"
@@ -69,7 +78,6 @@ function ProductCard({ product }) {
           />
         )}
 
-        {/* Discount Badge */}
         {hasDiscount && (
           <span className="product-discount-badge">
             {product.discount_percentage}% OFF
@@ -77,10 +85,8 @@ function ProductCard({ product }) {
         )}
       </Link>
 
-      {/* Product Information */}
       <div className="product-info">
 
-        {/* Product Name */}
         <Link
           to={`/product/${product.slug}`}
           className="product-title"
@@ -88,7 +94,6 @@ function ProductCard({ product }) {
           <h3>{product.name}</h3>
         </Link>
 
-        {/* Price */}
         <div className="price">
 
           {hasDiscount ? (
@@ -109,7 +114,21 @@ function ProductCard({ product }) {
 
         </div>
 
-        {/* Buy Now */}
+        {product.review_count > 0 ? (
+          <div className="product-card-rating">
+            <span className="product-card-stars">
+              {renderStars(product.average_rating)}
+            </span>
+            <span>
+              {Number(product.average_rating).toFixed(1)} ({product.review_count})
+            </span>
+          </div>
+        ) : (
+          <div className="product-card-rating empty">
+            No reviews yet
+          </div>
+        )}
+
         <button
           type="button"
           className="buy-now-button"

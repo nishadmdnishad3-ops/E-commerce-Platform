@@ -2,6 +2,27 @@ from django.conf import settings
 from django.db import models
 
 
+class UserRoleProfile(models.Model):
+    ROLE_ADMIN = 'admin'
+    ROLE_EMPLOYEE = 'employee'
+    ROLE_CUSTOMER = 'customer'
+    ROLE_CHOICES = [
+        (ROLE_ADMIN, 'Admin'),
+        (ROLE_EMPLOYEE, 'Employee'),
+        (ROLE_CUSTOMER, 'Customer'),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='role_profile',
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_CUSTOMER)
+
+    def __str__(self):
+        return f'{self.user.username}: {self.role}'
+
+
 class SocialAccount(models.Model):
     PROVIDER_GOOGLE = 'google'
     PROVIDER_APPLE = 'apple'

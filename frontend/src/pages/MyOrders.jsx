@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { clearAuthData } from '../utils/auth'
 
 const trackingStatuses = [
   'Pending',
@@ -161,21 +162,7 @@ function MyOrders() {
               Refresh token also expired.
               Login is required.
             */
-            localStorage.removeItem(
-              'access_token'
-            )
-
-            localStorage.removeItem(
-              'refresh_token'
-            )
-
-            localStorage.removeItem(
-              'username'
-            )
-
-            window.dispatchEvent(
-              new Event('auth-change')
-            )
+            clearAuthData()
 
             navigate('/login')
             return
@@ -275,10 +262,7 @@ function MyOrders() {
             }
           )
         } else {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          localStorage.removeItem('username')
-          window.dispatchEvent(new Event('auth-change'))
+          clearAuthData()
           navigate('/login')
           return
         }

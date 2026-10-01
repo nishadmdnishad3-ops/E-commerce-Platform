@@ -1,7 +1,7 @@
-from django.contrib import admin
 from django import forms
+from django.contrib import admin
 
-from .models import Category, Brand, Product, ProductImage
+from .models import Brand, Category, Product, ProductImage, ProductReview
 
 
 @admin.register(Category)
@@ -81,3 +81,18 @@ class ProductAdmin(admin.ModelAdmin):
     }
 
     inlines = [ProductImageInline]
+
+
+@admin.register(ProductReview)
+class ProductReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        'product',
+        'user',
+        'rating',
+        'review',
+        'created_at',
+        'updated_at',
+    )
+    list_filter = ('rating', 'created_at')
+    search_fields = ('product__name', 'user__username', 'review')
+    readonly_fields = ('created_at', 'updated_at')

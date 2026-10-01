@@ -9,6 +9,7 @@ import {
   Routes,
   Route,
   Link,
+  useLocation,
 } from 'react-router-dom'
 
 import './App.css'
@@ -23,6 +24,24 @@ import Offers from './pages/Offers'
 import Categories from './pages/Categories'
 import CategoryProducts from './pages/CategoryProducts'
 import Contact from './pages/Contact'
+import AdminLayout from './components/admin/AdminLayout'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminOrders from './pages/admin/AdminOrders'
+import AdminOrderDetail from './pages/admin/AdminOrderDetail'
+import AdminProducts from './pages/admin/AdminProducts'
+import AddProduct from './pages/admin/AddProduct'
+import EditProduct from './pages/admin/EditProduct'
+import AdminCategories from './pages/admin/AdminCategories'
+import AddCategory from './pages/admin/AddCategory'
+import EditCategory from './pages/admin/EditCategory'
+import AdminCustomers from './pages/admin/AdminCustomers'
+import AdminCustomerDetail from './pages/admin/AdminCustomerDetail'
+import AdminEmployees from './pages/admin/AdminEmployees'
+import EmployeeLayout from './components/employee/EmployeeLayout'
+import EmployeeDashboard from './pages/employee/EmployeeDashboard'
+import EmployeeCategories from './pages/employee/EmployeeCategories'
+import Profile from './pages/Profile'
+import ProtectedRoute from './components/ProtectedRoute'
 import { formatPrice } from './utils/formatPrice'
 
 const categoryIcons = {
@@ -502,92 +521,80 @@ function Home() {
    MAIN APP
 ========================= */
 
+function AppShell() {
+  const location = useLocation()
+  const isManagementRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/employee')
+
+  return (
+    <>
+      {!isManagementRoute && <Navbar />}
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/product/:slug" element={<ProductDetails />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<ProtectedRoute requiredRole="customer"><Checkout /></ProtectedRoute>} />
+        <Route path="/search" element={<Search />} />
+        <Route path="/offers" element={<Offers />} />
+        <Route path="/categories" element={<Categories />} />
+        <Route path="/category/:slug" element={<CategoryProducts />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/order-success" element={<OrderSuccess />} />
+        <Route path="/my-orders" element={<ProtectedRoute requiredRole="customer"><MyOrders /></ProtectedRoute>} />
+        <Route path="/wishlist" element={<ProtectedRoute requiredRole="customer"><Wishlist /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="orders/:id" element={<AdminOrderDetail />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="products/add" element={<AddProduct />} />
+          <Route path="products/edit/:id" element={<EditProduct />} />
+          <Route path="categories" element={<AdminCategories />} />
+          <Route path="categories/add" element={<AddCategory />} />
+          <Route path="categories/edit/:id" element={<EditCategory />} />
+          <Route path="customers" element={<AdminCustomers />} />
+          <Route path="customers/:id" element={<AdminCustomerDetail />} />
+          <Route path="employees" element={<AdminEmployees />} />
+        </Route>
+
+        <Route
+          path="/employee"
+          element={
+            <ProtectedRoute requiredRoles={['admin', 'employee']}>
+              <EmployeeLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<EmployeeDashboard />} />
+          <Route path="orders" element={<AdminOrders apiPrefix="/api/employee" routeBase="/employee" />} />
+          <Route path="orders/:id" element={<AdminOrderDetail apiPrefix="/api/employee" routeBase="/employee" employeeMode />} />
+          <Route path="products" element={<AdminProducts apiPrefix="/api/employee" routeBase="/employee" />} />
+          <Route path="products/add" element={<AddProduct apiPrefix="/api/employee" routeBase="/employee" employeeMode />} />
+          <Route path="products/edit/:id" element={<EditProduct apiPrefix="/api/employee" routeBase="/employee" employeeMode />} />
+          <Route path="categories" element={<EmployeeCategories />} />
+        </Route>
+      </Routes>
+
+      {!isManagementRoute && <Footer />}
+    </>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
-
-      <Navbar />
-
-      <Routes>
-
-        {/* Home */}
-        <Route
-          path="/"
-          element={<Home />}
-        />
-
-        {/* Product Details */}
-        <Route
-          path="/product/:slug"
-          element={<ProductDetails />}
-        />
-
-        {/* Cart */}
-        <Route
-          path="/cart"
-          element={<Cart />}
-        />
-
-        {/* Checkout */}
-        <Route
-          path="/checkout"
-          element={<Checkout />}
-        />
-
-        {/* Search */}
-        <Route
-          path="/search"
-          element={<Search />}
-        />
-
-        {/* Offers */}
-        <Route
-          path="/offers"
-          element={<Offers />}
-        />
-
-        {/* Categories */}
-        <Route
-          path="/categories"
-          element={<Categories />}
-        />
-        <Route
-          path="/category/:slug"
-          element={<CategoryProducts />}
-        />
-
-        {/* Contact */}
-        <Route
-          path="/contact"
-          element={<Contact />}
-        />
-
-        {/* Login */}
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        {/* Register */}
-        <Route
-          path="/register"
-          element={<Register />}
-        />
-        <Route
-          path="/order-success"
-          element={<OrderSuccess />}
-        />
-        <Route
-          path="/my-orders"
-          element={<MyOrders />}
-        />
-        <Route
-          path="/wishlist"
-          element={<Wishlist />}
-        />
-
-      </Routes>
-     <Footer />
+      <AppShell />
     </BrowserRouter>
   )
 }

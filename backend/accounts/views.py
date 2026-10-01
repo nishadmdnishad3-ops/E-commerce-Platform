@@ -3,10 +3,17 @@ import re
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from rest_framework import generics, status
+from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q, Sum
+from django.core.exceptions import ValidationError
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+from orders.models import Order
+from .serializers import CustomTokenObtainPairSerializer, RegisterSerializer
 
 try:
     from google.auth.transport import requests as google_requests
@@ -17,8 +24,9 @@ except ImportError:  # pragma: no cover
 
 import jwt
 
-from .models import SocialAccount
-from .serializers import RegisterSerializer
+from .models import SocialAccount, UserRoleProfile
+from .permissions import IsAdmin
+from .roles import ensure_user_role_profile, get_user_role
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -26,6 +34,10 @@ User = get_user_model()
 
 class RegisterAPIView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 def _generate_unique_username(base_name, provider):
@@ -49,12 +61,25 @@ def _generate_unique_username(base_name, provider):
 
 
 def _build_token_response(user):
+    profile = ensure_user_role_profile(user)
+    role = UserRoleProfile.ROLE_ADMIN if user.is_superuser else profile.role
     refresh = RefreshToken.for_user(user)
+    refresh['role'] = role
+    refresh['username'] = user.username
     return {
         'access': str(refresh.access_token),
         'refresh': str(refresh),
         'username': user.username,
         'email': user.email,
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser,
+        'role': role,
+        'user': {
+            'id': user.pk,
+            'username': user.username,
+            'email': user.email,
+            'role': role,
+        },
     }
 
 
@@ -97,6 +122,173 @@ def _link_existing_social_account(provider, provider_user_id, email, name):
         email=email or '',
     )
     return user
+
+
+class AdminCustomerListAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        users = User.objects.filter(
+            is_active=True,
+            role_profile__role=UserRoleProfile.ROLE_CUSTOMER,
+        ).order_by('-date_joined')
+        search = (request.query_params.get('search') or '').strip()
+        if search:
+            users = users.filter(
+                Q(username__icontains=search)
+                | Q(email__icontains=search)
+                | Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+            )
+
+        result = []
+        for user in users:
+            total_spent = Order.objects.filter(user=user).aggregate(total=Sum('total'))['total'] or 0
+            result.append({
+                'id': user.id,
+                'name': user.get_full_name() or user.username,
+                'email': user.email,
+                'username': user.username,
+                'date_joined': user.date_joined.isoformat(),
+                'order_count': Order.objects.filter(user=user).count(),
+                'total_spent': str(total_spent),
+            })
+
+        return Response(result)
+
+
+class AdminCustomerDetailAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request, customer_id):
+        user = User.objects.filter(
+            id=customer_id,
+            role_profile__role=UserRoleProfile.ROLE_CUSTOMER,
+        ).first()
+        if not user:
+            return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        customer_orders = Order.objects.filter(user=user).order_by('-created_at')
+        return Response({
+            'id': user.id,
+            'name': user.get_full_name() or user.username,
+            'email': user.email,
+            'username': user.username,
+            'date_joined': user.date_joined.isoformat(),
+            'order_count': customer_orders.count(),
+            'total_spent': str(customer_orders.aggregate(total=Sum('total'))['total'] or 0),
+            'recent_orders': [
+                {
+                    'id': order.id,
+                    'order_number': order.order_number,
+                    'date': order.created_at.isoformat(),
+                    'total': str(order.total),
+                    'status': order.status,
+                }
+                for order in customer_orders[:10]
+            ],
+        })
+
+
+class AdminEmployeeListCreateAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @staticmethod
+    def serialize_employee(user):
+        return {
+            'id': user.id,
+            'name': user.get_full_name() or user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'username': user.username,
+            'email': user.email,
+            'is_active': user.is_active,
+            'date_joined': user.date_joined.isoformat(),
+        }
+
+    def get(self, request):
+        employees = User.objects.filter(
+            role_profile__role=UserRoleProfile.ROLE_EMPLOYEE,
+        ).order_by('-date_joined')
+        return Response([self.serialize_employee(user) for user in employees])
+
+    def post(self, request):
+        first_name = (request.data.get('first_name') or '').strip()
+        last_name = (request.data.get('last_name') or '').strip()
+        username = (request.data.get('username') or '').strip()
+        email = (request.data.get('email') or '').strip().lower()
+        password = request.data.get('password') or ''
+
+        if not all([first_name, last_name, username, email, password]):
+            return Response({'error': 'All employee fields are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({'error': 'Username is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({'error': 'Email is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            validate_password(password)
+        except ValidationError as error:
+            return Response({'error': list(error.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        employee = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            is_staff=False,
+        )
+        UserRoleProfile.objects.create(user=employee, role=UserRoleProfile.ROLE_EMPLOYEE)
+        return Response(self.serialize_employee(employee), status=status.HTTP_201_CREATED)
+
+
+class AdminEmployeeDetailAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    def patch(self, request, employee_id):
+        employee = User.objects.filter(
+            id=employee_id,
+            role_profile__role=UserRoleProfile.ROLE_EMPLOYEE,
+        ).first()
+        if not employee:
+            return Response({'error': 'Employee not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if 'is_active' not in request.data:
+            return Response({'error': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        employee.is_active = request.data.get('is_active') in [True, 'true', 'True', '1']
+        employee.save(update_fields=['is_active'])
+        return Response(AdminEmployeeListCreateAPIView.serialize_employee(employee))
+
+
+class MyProfileAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def serialize_user(user):
+        return {
+            'id': user.pk,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'role': get_user_role(user),
+        }
+
+    def get(self, request):
+        return Response(self.serialize_user(request.user))
+
+    def patch(self, request):
+        user = request.user
+        email = (request.data.get('email', user.email) or '').strip().lower()
+        if email and User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+            return Response({'email': 'This email address is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.first_name = (request.data.get('first_name', user.first_name) or '').strip()
+        user.last_name = (request.data.get('last_name', user.last_name) or '').strip()
+        user.email = email
+        user.save(update_fields=['first_name', 'last_name', 'email'])
+        return Response(self.serialize_user(user))
 
 
 class GoogleLoginAPIView(APIView):

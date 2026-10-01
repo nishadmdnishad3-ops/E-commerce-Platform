@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { clearAuthData } from '../utils/auth'
 
 const WishlistContext = createContext(null)
 const API_URL = 'http://127.0.0.1:8000/api/wishlist'
@@ -8,10 +9,7 @@ function getToken() {
 }
 
 function clearExpiredAuth() {
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('username')
-  window.dispatchEvent(new Event('auth-change'))
+  clearAuthData()
 }
 
 async function wishlistRequest(path, options = {}) {

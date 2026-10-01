@@ -1,14 +1,7 @@
 const API_BASE = 'http://127.0.0.1:8000'
+import { saveAuthData } from './auth'
 
-export const saveAuthData = (payload) => {
-  const username = payload.username || localStorage.getItem('username') || 'user'
-
-  localStorage.setItem('access_token', payload.access)
-  localStorage.setItem('refresh_token', payload.refresh)
-  localStorage.setItem('username', username)
-
-  window.dispatchEvent(new Event('auth-change'))
-}
+export { saveAuthData }
 
 const requestSocialLogin = async (provider, body, fallbackMessage) => {
   const response = await fetch(`${API_BASE}/api/accounts/${provider}-login/`, {

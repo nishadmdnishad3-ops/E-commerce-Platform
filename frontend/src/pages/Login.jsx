@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   initializeAppleLogin,
@@ -6,28 +6,15 @@ import {
   loginWithApple,
   loginWithGoogle,
 } from '../utils/socialAuth'
+import { getRoleHome, saveAuthData } from '../utils/auth'
 
 function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
   const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!successMessage) {
-      return undefined
-    }
-
-    const timeoutId = setTimeout(() => {
-      setSuccessMessage('')
-      navigate('/')
-    }, 2500)
-
-    return () => clearTimeout(timeoutId)
-  }, [successMessage, navigate])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -56,13 +43,8 @@ function Login() {
         throw new Error('Invalid username or password')
       }
 
-      localStorage.setItem('access_token', data.access)
-      localStorage.setItem('refresh_token', data.refresh)
-      localStorage.setItem('username', username)
-
-      window.dispatchEvent(new Event('auth-change'))
-
-      setSuccessMessage('Login successful!')
+      const user = saveAuthData(data, username)
+      navigate(getRoleHome(user.role), { replace: true })
     } catch (error) {
       setError(error.message)
     } finally {
@@ -76,8 +58,8 @@ function Login() {
 
     try {
       const credential = await initializeGoogleLogin()
-      await loginWithGoogle(credential)
-      setSuccessMessage('Login successful!')
+      const data = await loginWithGoogle(credential)
+      navigate(getRoleHome(data.user?.role || data.role), { replace: true })
     } catch (error) {
       setError(error.message || 'Google login failed. Please try again.')
     } finally {
@@ -97,8 +79,8 @@ function Login() {
         throw new Error('Apple login failed. Please try again.')
       }
 
-      await loginWithApple(identityToken, appleResponse?.user || {})
-      setSuccessMessage('Login successful!')
+      const data = await loginWithApple(identityToken, appleResponse?.user || {})
+      navigate(getRoleHome(data.user?.role || data.role), { replace: true })
     } catch (error) {
       setError(error.message || 'Apple login failed. Please try again.')
     } finally {
@@ -108,13 +90,6 @@ function Login() {
 
   return (
     <main className="auth-page">
-      {successMessage && (
-        <div className="login-success-message" role="status">
-          <span aria-hidden="true">✓</span>
-          <span>{successMessage}</span>
-        </div>
-      )}
-
       <div className="auth-card">
 
         <div className="auth-logo">
@@ -131,11 +106,11 @@ function Login() {
 
         <form onSubmit={handleLogin}>
 
-          <label>Username</label>
+          <label>Email or username</label>
 
           <input
             type="text"
-            placeholder="Enter your username"
+            placeholder="Enter your email or username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
