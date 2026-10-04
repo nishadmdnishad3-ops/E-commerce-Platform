@@ -7,7 +7,11 @@ from accounts.views import (
     AdminEmployeeListCreateAPIView,
 )
 from orders.views import (
+    AdminCouponDetailAPIView,
+    AdminCouponListCreateAPIView,
     AdminDashboardAPIView,
+    AdminGiftVoucherDetailAPIView,
+    AdminGiftVoucherListCreateAPIView,
     AdminOrderDetailAPIView,
     AdminOrderListAPIView,
     AdminOrderStatusUpdateAPIView,
@@ -34,4 +38,8 @@ urlpatterns = [
     path('customers/<int:customer_id>/', AdminCustomerDetailAPIView.as_view(), name='admin-customer-detail'),
     path('employees/', AdminEmployeeListCreateAPIView.as_view(), name='admin-employee-list-create'),
     path('employees/<int:employee_id>/', AdminEmployeeDetailAPIView.as_view(), name='admin-employee-detail'),
+    path('coupons/', AdminCouponListCreateAPIView.as_view(), name='admin-coupon-list-create'),
+    path('coupons/<int:coupon_id>/', AdminCouponDetailAPIView.as_view(), name='admin-coupon-detail'),
+    path('gift-vouchers/', AdminGiftVoucherListCreateAPIView.as_view(), name='admin-gift-voucher-list-create'),
+    path('gift-vouchers/<int:gift_voucher_id>/', AdminGiftVoucherDetailAPIView.as_view(), name='admin-gift-voucher-detail'),
 ]

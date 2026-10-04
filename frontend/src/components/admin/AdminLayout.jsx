@@ -1,12 +1,14 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import AdminHeader from './AdminHeader'
 import AdminSidebar from './AdminSidebar'
+import { clearAuthData } from '../../utils/auth'
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
-  const pageTitle = pathname.includes('/orders/')
+  const navigate = useNavigate()
+  const defaultPageTitle = pathname.includes('/orders/')
     ? 'Order details'
     : pathname.includes('/orders')
       ? 'Orders'
@@ -22,6 +24,12 @@ export default function AdminLayout() {
                 ? 'Add category'
                 : pathname.includes('/categories')
                   ? 'Categories'
+                  : pathname.includes('/gift-vouchers/edit')
+                    ? 'Edit gift voucher'
+                    : pathname.includes('/gift-vouchers/add')
+                      ? 'Add gift voucher'
+                      : pathname.includes('/gift-vouchers')
+                        ? 'Gift Vouchers'
                   : pathname.includes('/customers/')
                     ? 'Customer details'
                     : pathname.includes('/customers')
@@ -30,12 +38,34 @@ export default function AdminLayout() {
                           ? 'Employees'
                       : 'Dashboard'
 
+  const pageTitle = pathname === '/admin/profile'
+    ? 'Profile'
+    : pathname === '/admin/change-password'
+      ? 'Change password'
+      : defaultPageTitle
+
+  const handleLogout = () => {
+    clearAuthData()
+    setSidebarOpen(false)
+    navigate('/')
+  }
+
   return (
     <div className="admin-shell">
-      <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <AdminSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onLogout={handleLogout}
+      />
 
       <div className="admin-main-panel">
-        <AdminHeader title={pageTitle} onMenuClick={() => setSidebarOpen(true)} />
+        <AdminHeader
+          title={pageTitle}
+          onMenuClick={() => setSidebarOpen(true)}
+          showBack={pathname !== '/admin'}
+          showProfileMenu
+          onLogout={handleLogout}
+        />
         <main className="admin-main-content">
           <Outlet />
         </main>

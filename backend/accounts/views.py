@@ -77,13 +77,22 @@ def _build_token_response(user):
         'user': {
             'id': user.pk,
             'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
             'email': user.email,
             'role': role,
         },
     }
 
 
-def _link_existing_social_account(provider, provider_user_id, email, name):
+def _link_existing_social_account(
+    provider,
+    provider_user_id,
+    email,
+    name,
+    first_name='',
+    last_name='',
+):
     social_account = SocialAccount.objects.filter(
         provider=provider,
         provider_user_id=provider_user_id,
@@ -113,7 +122,9 @@ def _link_existing_social_account(provider, provider_user_id, email, name):
     user = User.objects.create_user(
         username=username,
         email=email or '',
-        password='SocialLogin@2025',
+        first_name=first_name,
+        last_name=last_name,
+        password=None,
     )
     SocialAccount.objects.create(
         user=user,
@@ -280,15 +291,58 @@ class MyProfileAPIView(APIView):
 
     def patch(self, request):
         user = request.user
-        email = (request.data.get('email', user.email) or '').strip().lower()
-        if email and User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
-            return Response({'email': 'This email address is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
+        requested_email = request.data.get('email')
+        if requested_email is not None and requested_email.strip().casefold() != (user.email or '').casefold():
+            return Response({'email': 'Email cannot be changed.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        username = (request.data.get('username', user.username) or '').strip()
+        if not username:
+            return Response({'username': 'Username cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
+            return Response({'username': 'Username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.username = username
         user.first_name = (request.data.get('first_name', user.first_name) or '').strip()
         user.last_name = (request.data.get('last_name', user.last_name) or '').strip()
-        user.email = email
-        user.save(update_fields=['first_name', 'last_name', 'email'])
+        user.save(update_fields=['username', 'first_name', 'last_name'])
         return Response(self.serialize_user(user))
+
+
+class ChangePasswordAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        current_password = request.data.get('current_password') or ''
+        new_password = request.data.get('new_password') or ''
+        confirm_password = request.data.get('confirm_new_password') or ''
+
+        if not current_password or not new_password or not confirm_password:
+            return Response(
+                {'error': 'All password fields are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not request.user.check_password(current_password):
+            return Response(
+                {'current_password': 'Current password is incorrect.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new_password != confirm_password:
+            return Response(
+                {'confirm_new_password': 'New passwords do not match.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_password(new_password, user=request.user)
+        except ValidationError as error:
+            return Response(
+                {'new_password': error.messages},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.user.set_password(new_password)
+        request.user.save(update_fields=['password'])
+        return Response({'message': 'Password changed successfully.'})
 
 
 class GoogleLoginAPIView(APIView):
@@ -300,14 +354,20 @@ class GoogleLoginAPIView(APIView):
         if not credential:
             logger.warning('Google social login attempted without credential.')
             return Response({
-                'detail': 'Google login failed. Please try again.'
+                'detail': 'Google did not return a credential. Please try again.'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not settings.GOOGLE_CLIENT_ID or 'your-google-client-id' in settings.GOOGLE_CLIENT_ID:
+            logger.error('Google login is unavailable because GOOGLE_CLIENT_ID is not configured.')
+            return Response({
+                'detail': 'Google login is not configured on the server. Set GOOGLE_CLIENT_ID.'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         if id_token is None or google_requests is None:
             logger.error('Google auth library is not installed or configured.')
             return Response({
-                'detail': 'Google login failed. Please try again.'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                'detail': 'Google login is unavailable because the server token verifier is not installed.'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         try:
             payload = id_token.verify_oauth2_token(
@@ -316,22 +376,22 @@ class GoogleLoginAPIView(APIView):
                 settings.GOOGLE_CLIENT_ID,
             )
         except Exception:
-            logger.exception('Google token verification failed.')
+            logger.warning('Google token verification failed.')
             return Response({
-                'detail': 'Google login failed. Please try again.'
+                'detail': 'Google credential is invalid or expired.'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         if not payload.get('sub'):
             logger.warning('Google token missing subject.')
             return Response({
-                'detail': 'Google login failed. Please try again.'
+                'detail': 'Google credential is invalid or expired.'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         email = payload.get('email', '')
-        if payload.get('email_verified') is False:
-            logger.warning('Google login blocked because email is not verified: %s', email)
+        if not email or payload.get('email_verified') is not True:
+            logger.warning('Google login blocked because a verified email was not provided.')
             return Response({
-                'detail': 'Google login failed. Please try again.'
+                'detail': 'A verified Google email address is required.'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         user = _link_existing_social_account(
@@ -339,6 +399,8 @@ class GoogleLoginAPIView(APIView):
             provider_user_id=payload['sub'],
             email=email,
             name=payload.get('name') or (email.split('@')[0] if email else ''),
+            first_name=payload.get('given_name', ''),
+            last_name=payload.get('family_name', ''),
         )
         return Response(_build_token_response(user))
 

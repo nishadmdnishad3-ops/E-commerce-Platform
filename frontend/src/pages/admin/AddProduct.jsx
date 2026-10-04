@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE_URL, clearAuthData, fetchWithTokenRefresh } from '../../utils/auth'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const allowedImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp'])
 const allowedImageTypes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
+const getApiErrorMessage = (data) => {
+  if (typeof data === 'string') return data
+  if (!data || typeof data !== 'object') return ''
+
+  const message = data.detail || data.error
+  if (message) return Array.isArray(message) ? message.join(' ') : String(message)
+
+  return Object.entries(data)
+    .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(' ') : String(errors)}`)
+    .join(' ')
+}
 
 const initialForm = {
   name: '',
@@ -37,14 +49,14 @@ export default function AddProduct({ apiPrefix = '/api/admin', routeBase = '/adm
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
-    fetch(`http://127.0.0.1:8000${apiPrefix}/categories/`, {
+    fetch(`${API_BASE_URL}${apiPrefix}/categories/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((response) => response.json())
       .then((data) => setCategories(data.results || data))
       .catch(() => setCategories([]))
 
-    fetch(`http://127.0.0.1:8000${apiPrefix}/brands/`, {
+    fetch(`${API_BASE_URL}${apiPrefix}/brands/`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((response) => response.json())
@@ -146,15 +158,35 @@ export default function AddProduct({ apiPrefix = '/api/admin', routeBase = '/adm
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000${apiPrefix}/products/`, {
+      if (!token) {
+        clearAuthData()
+        throw new Error('Authentication failed. Please login again.')
+      }
+
+      const productUrl = `${API_BASE_URL}${apiPrefix}/products/`
+      const response = await fetchWithTokenRefresh(productUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: payload,
       })
 
+      if (response.status === 401) {
+        clearAuthData()
+        throw new Error('Authentication failed. Please login again.')
+      }
+
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(data.detail || data.error || 'Unable to create product.')
+        const apiMessage = getApiErrorMessage(data)
+        if (response.status === 403) {
+          throw new Error('You do not have permission to create products.')
+        }
+        if (response.status === 400) {
+          throw new Error(apiMessage || 'The product details are invalid.')
+        }
+        if (response.status >= 500) {
+          throw new Error(apiMessage || `Server error (${response.status}). Please try again.`)
+        }
+        throw new Error(apiMessage || `Unable to create product (HTTP ${response.status}).`)
       }
 
       selectedImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl))

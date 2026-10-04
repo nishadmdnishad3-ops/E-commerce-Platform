@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import {
-  initializeAppleLogin,
-  initializeGoogleLogin,
-  loginWithApple,
-  loginWithGoogle,
-} from '../utils/socialAuth'
+import { initializeGoogleLogin, loginWithGoogle } from '../utils/socialAuth'
 
 function Register() {
   const [username, setUsername] = useState('')
@@ -80,27 +75,6 @@ function Register() {
       navigate('/')
     } catch (error) {
       setError(error.message || 'Google login failed. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAppleRegister = async () => {
-    setError('')
-    setLoading(true)
-
-    try {
-      const appleResponse = await initializeAppleLogin()
-      const identityToken = appleResponse?.authorization?.id_token || appleResponse?.id_token
-
-      if (!identityToken) {
-        throw new Error('Apple login failed. Please try again.')
-      }
-
-      await loginWithApple(identityToken, appleResponse?.user || {})
-      navigate('/')
-    } catch (error) {
-      setError(error.message || 'Apple login failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -190,52 +164,15 @@ function Register() {
 
         </form>
 
-        <div style={{ margin: '18px 0 12px', display: 'grid', gap: '10px' }}>
+        <div className="social-login-actions">
           <button
             type="button"
             onClick={handleGoogleRegister}
             disabled={loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              width: '100%',
-              border: '1px solid #dadce0',
-              borderRadius: '999px',
-              background: '#ffffff',
-              color: '#3c4043',
-              fontWeight: 600,
-              padding: '12px 18px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
-            }}
+            className="google-signin-button"
           >
-            <span style={{ fontSize: '18px', fontWeight: 700 }}>G</span>
+            <span className="google-signin-mark" aria-hidden="true">G</span>
             <span>Continue with Google</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleAppleRegister}
-            disabled={loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              width: '100%',
-              border: '1px solid #1f1f1f',
-              borderRadius: '999px',
-              background: '#111111',
-              color: '#ffffff',
-              fontWeight: 600,
-              padding: '12px 18px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <span style={{ fontSize: '18px' }}></span>
-            <span>Continue with Apple</span>
           </button>
         </div>
 

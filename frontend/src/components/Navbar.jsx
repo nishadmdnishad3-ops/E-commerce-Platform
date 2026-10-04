@@ -7,7 +7,7 @@ import { clearAuthData, getCurrentRole, getRoleHome } from '../utils/auth'
 
 
 function Navbar() {
-  const { cartCount } = useCart()
+  const { cartCount, clearCart } = useCart()
   const { clearWishlist } = useWishlist()
 
   const location = useLocation()
@@ -117,6 +117,7 @@ function Navbar() {
     clearAuthData()
     setUsername(null)
     setRole('customer')
+    clearCart()
     clearWishlist()
     navigate('/')
   }
@@ -278,12 +279,12 @@ function Navbar() {
                   </div>
                 </div>
 
-                {role === 'admin' || role === 'employee' ? (
+                {role === 'employee' ? (
                   <Link to={getRoleHome(role)} className="dropdown-link">
                     <span className="dropdown-action-icon" aria-hidden="true">▣</span>
-                    <span>{role === 'admin' ? 'Admin Dashboard' : 'Employee Dashboard'}</span>
+                    <span>Employee Dashboard</span>
                   </Link>
-                ) : (
+                ) : role !== 'admin' ? (
                   <>
                     <Link to="/my-orders" className="dropdown-link">
                       <span className="dropdown-action-icon" aria-hidden="true">▣</span>
@@ -298,7 +299,7 @@ function Navbar() {
                       <span className="dropdown-wishlist-icon" aria-hidden="true">❤️</span>
                     </Link>
                   </>
-                )}
+                ) : null}
 
                 <button
                   type="button"

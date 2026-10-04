@@ -1,5 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { API_BASE_URL, fetchWithTokenRefresh } from '../../utils/auth'
+
+const getApiErrorMessage = (data) => {
+  if (typeof data === 'string') return data
+  if (!data || typeof data !== 'object') return ''
+
+  const message = data.detail || data.error
+  if (message) return Array.isArray(message) ? message.join(' ') : String(message)
+
+  return Object.entries(data)
+    .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(' ') : String(errors)}`)
+    .join(' ')
+}
 
 export default function EditProduct({ apiPrefix = '/api/admin', routeBase = '/admin', employeeMode = false }) {
   const { id } = useParams()
@@ -22,6 +35,7 @@ export default function EditProduct({ apiPrefix = '/api/admin', routeBase = '/ad
     image: null,
   })
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
@@ -88,7 +102,8 @@ export default function EditProduct({ apiPrefix = '/api/admin', routeBase = '/ad
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    const token = localStorage.getItem('access_token')
+    setError('')
+    setSuccess('')
 
     const payload = new FormData()
     payload.append('name', form.name)
@@ -106,19 +121,40 @@ export default function EditProduct({ apiPrefix = '/api/admin', routeBase = '/ad
     if (form.image) payload.append('images', form.image)
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000${apiPrefix}/products/${id}/`, {
+      const response = await fetchWithTokenRefresh(`${API_BASE_URL}${apiPrefix}/products/${id}/`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
         body: payload,
       })
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(data.detail || data.error || 'Unable to update product.')
+        if (response.status === 401) {
+          const message = 'Session expired. Please login again.'
+          navigate('/login', { replace: true, state: { message } })
+          return
+        }
+        if (response.status === 403) {
+          throw new Error('You do not have permission to update products.')
+        }
+        if (response.status === 400) {
+          throw new Error(getApiErrorMessage(data) || 'The product details are invalid.')
+        }
+        if (response.status >= 500) {
+          throw new Error('Server error. Please try again.')
+        }
+        throw new Error(getApiErrorMessage(data) || `Unable to update product (HTTP ${response.status}).`)
       }
 
-      navigate(`${routeBase}/products`)
+      setSuccess('Product updated successfully.')
+      window.setTimeout(() => navigate(`${routeBase}/products`), 1200)
     } catch (submitError) {
+      if (submitError.status === 401) {
+        navigate('/login', {
+          replace: true,
+          state: { message: 'Session expired. Please login again.' },
+        })
+        return
+      }
       setError(submitError.message)
     }
   }
@@ -203,6 +239,7 @@ export default function EditProduct({ apiPrefix = '/api/admin', routeBase = '/ad
           ) : null}
 
           {error ? <div className="form-error">{error}</div> : null}
+          {success ? <div className="form-success" role="status">{success}</div> : null}
 
           <div className="form-actions">
             <button type="submit" className="primary-button">Update Product</button>

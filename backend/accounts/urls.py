@@ -3,6 +3,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     AppleLoginAPIView,
+    ChangePasswordAPIView,
     CustomTokenObtainPairView,
     GoogleLoginAPIView,
     MyProfileAPIView,
@@ -32,6 +33,7 @@ urlpatterns = [
         name='apple-login'
     ),
     path('profile/', MyProfileAPIView.as_view(), name='my-profile'),
+    path('change-password/', ChangePasswordAPIView.as_view(), name='change-password'),
     path(
         'token/refresh/',
         TokenRefreshView.as_view(),

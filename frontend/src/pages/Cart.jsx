@@ -10,9 +10,7 @@ function Cart() {
   } = useCart()
 
   const navigate = useNavigate()
-  const [selectedItemIds, setSelectedItemIds] = useState(
-    () => cart.map((item) => item.id)
-  )
+  const [selectedItemIds, setSelectedItemIds] = useState([])
   const [selectionError, setSelectionError] = useState('')
 
   useEffect(() => {

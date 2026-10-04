@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
@@ -168,6 +170,13 @@ class AdminProductListCreateAPIView(APIView):
         if not sku:
             return Response({'error': 'SKU is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            price = Decimal(str(request.data.get('price')))
+            if not price.is_finite():
+                raise InvalidOperation
+        except (InvalidOperation, TypeError, ValueError):
+            return Response({'error': 'A valid price is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
         slug = (request.data.get('slug') or '').strip() or _generate_unique_slug(Product, name)
         if Product.objects.filter(slug=slug).exists():
             slug = _generate_unique_slug(Product, f'{name}-{sku}')
@@ -180,7 +189,7 @@ class AdminProductListCreateAPIView(APIView):
             slug=slug,
             sku=sku,
             description=(request.data.get('description') or '').strip(),
-            price=request.data.get('price'),
+            price=price,
             discount_percentage=int(request.data.get('discount_percentage') or 0),
             stock=int(request.data.get('stock') or 0),
             is_active=True if is_employee else request.data.get('is_active', True) in [True, 'true', 'True', '1'],
@@ -223,7 +232,13 @@ class AdminProductDetailAPIView(APIView):
         if 'sku' in request.data and request.data.get('sku'):
             product.sku = request.data.get('sku').strip()
         if 'price' in request.data and request.data.get('price') is not None:
-            product.price = request.data.get('price')
+            try:
+                price = Decimal(str(request.data.get('price')))
+                if not price.is_finite():
+                    raise InvalidOperation
+            except (InvalidOperation, TypeError, ValueError):
+                return Response({'error': 'A valid price is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            product.price = price
         if 'discount_percentage' in request.data:
             product.discount_percentage = int(request.data.get('discount_percentage') or 0)
         if 'stock' in request.data and request.data.get('stock') is not None:

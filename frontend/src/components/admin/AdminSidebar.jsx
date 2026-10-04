@@ -1,16 +1,16 @@
 import { NavLink } from 'react-router-dom'
-import { clearAuthData } from '../../utils/auth'
 
 const navItems = [
   { label: 'Dashboard', path: '/admin' },
   { label: 'Orders', path: '/admin/orders' },
   { label: 'Products', path: '/admin/products' },
   { label: 'Categories', path: '/admin/categories' },
+  { label: 'Gift Vouchers', path: '/admin/gift-vouchers', icon: '🎁' },
   { label: 'Customers', path: '/admin/customers' },
   { label: 'Employees', path: '/admin/employees' },
 ]
 
-export default function AdminSidebar({ isOpen, onClose }) {
+export default function AdminSidebar({ isOpen, onClose, onLogout }) {
   return (
     <aside className={`admin-sidebar ${isOpen ? 'open' : ''}`}>
       <div className="admin-sidebar-header">
@@ -32,6 +32,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
             className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}
             onClick={onClose}
           >
+            {item.icon ? <span className="admin-nav-icon" aria-hidden="true">{item.icon}</span> : null}
             {item.label}
           </NavLink>
         ))}
@@ -40,10 +41,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
       <button
         type="button"
         className="admin-logout-button"
-        onClick={() => {
-          clearAuthData()
-          window.location.href = '/'
-        }}
+        onClick={onLogout}
       >
         Logout
       </button>

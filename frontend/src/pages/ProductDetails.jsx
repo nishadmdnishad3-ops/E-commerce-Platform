@@ -190,12 +190,16 @@ function ProductDetails() {
   const handleBuyNow = () => {
     const finalQuantity = Number(quantity) || 1
 
-    addToCart({
-      ...product,
-      quantity: finalQuantity,
+    navigate('/checkout', {
+      state: {
+        buyNowItems: [
+          {
+            ...product,
+            quantity: finalQuantity,
+          },
+        ],
+      },
     })
-
-    navigate('/checkout')
   }
 
   const handleWishlist = async () => {

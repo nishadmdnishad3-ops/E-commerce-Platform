@@ -1,10 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { formatPrice } from '../utils/formatPrice'
 
 function ProductCard({ product }) {
-  const { addToCart } = useCart()
   const { isInWishlist, toggleWishlist } = useWishlist()
   const navigate = useNavigate()
 
@@ -27,12 +25,16 @@ function ProductCard({ product }) {
   }
 
   const handleBuyNow = () => {
-    addToCart({
-      ...product,
-      quantity: 1,
+    navigate('/checkout', {
+      state: {
+        buyNowItems: [
+          {
+            ...product,
+            quantity: 1,
+          },
+        ],
+      },
     })
-
-    navigate('/checkout')
   }
 
   const handleWishlist = async (event) => {

@@ -11,12 +11,13 @@ function Checkout() {
     removeFromCart,
   } = useCart()
 
-  const navigationSelectedItems =
-    location.state?.selectedItems
+  const buyNowItems = location.state?.buyNowItems
+  const navigationSelectedItems = location.state?.selectedItems
+  const isBuyNowCheckout = Array.isArray(buyNowItems) && buyNowItems.length > 0
 
-  const checkoutItems =
-    Array.isArray(navigationSelectedItems) &&
-    navigationSelectedItems.length > 0
+  const checkoutItems = isBuyNowCheckout
+    ? buyNowItems
+    : Array.isArray(navigationSelectedItems) && navigationSelectedItems.length > 0
       ? navigationSelectedItems
       : cart
 
@@ -47,7 +48,13 @@ function Checkout() {
   )
 
   const [coupon, setCoupon] = useState('')
-  const [couponApplied, setCouponApplied] = useState(false)
+  const [giftVoucher, setGiftVoucher] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null)
+  const [appliedVoucher, setAppliedVoucher] = useState(null)
+  const [couponMessage, setCouponMessage] = useState('')
+  const [voucherMessage, setVoucherMessage] = useState('')
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false)
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
@@ -178,28 +185,158 @@ function Checkout() {
 
   const deliveryFee = getDeliveryFee()
 
-  const discountAmount = couponApplied
-    ? checkoutTotal * 0.05
+  const couponDiscountAmount = appliedCoupon
+    ? Number(appliedCoupon.discount_amount || 0)
     : 0
 
-  const finalTotal =
-    checkoutTotal -
-    discountAmount +
-    deliveryFee
+  const giftVoucherDiscountAmount = appliedVoucher
+    ? Number(appliedVoucher.discount_amount || 0)
+    : 0
 
-  const handleCoupon = () => {
-    if (!coupon.trim()) {
-      alert('Please enter a coupon code.')
+  const discountedSubtotal = Math.max(
+    checkoutTotal - couponDiscountAmount - giftVoucherDiscountAmount,
+    0
+  )
+
+  const finalTotal = discountedSubtotal + deliveryFee
+
+  const validateVoucherCode = async (code, couponCode = '') => {
+    const token = localStorage.getItem('access_token')
+    const response = await fetch(
+      'http://127.0.0.1:8000/api/orders/vouchers/validate/',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          code,
+          coupon_code: couponCode,
+          subtotal: checkoutTotal,
+        }),
+      }
+    )
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data.error || 'Invalid gift voucher code.')
+    }
+    return data
+  }
+
+  const refreshAppliedVoucher = async (couponCode = '') => {
+    if (!appliedVoucher?.code) return
+
+    setIsApplyingVoucher(true)
+    try {
+      const data = await validateVoucherCode(appliedVoucher.code, couponCode)
+      setAppliedVoucher((current) => current
+        ? { ...current, discount_amount: Number(data.discount_amount || 0) }
+        : current)
+    } catch (error) {
+      setAppliedVoucher(null)
+      setVoucherMessage(error.message || 'Invalid gift voucher code.')
+    } finally {
+      setIsApplyingVoucher(false)
+    }
+  }
+
+  const handleApplyCoupon = async () => {
+    const normalizedCode = coupon.trim()
+
+    if (!normalizedCode) {
+      setCouponMessage('Please enter a coupon code.')
       return
     }
 
-    if (coupon.trim().toUpperCase() === 'TECH5') {
-      setCouponApplied(true)
-      alert('Coupon applied! You received 5% discount.')
-    } else {
-      setCouponApplied(false)
-      alert('Invalid coupon code.')
+    setIsApplyingCoupon(true)
+    setCouponMessage('')
+
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(
+        'http://127.0.0.1:8000/api/orders/coupons/validate/',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            code: normalizedCode,
+            subtotal: checkoutTotal,
+            voucher_code: appliedVoucher?.code || '',
+          }),
+        }
+      )
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Invalid coupon code.')
+      }
+
+      setAppliedCoupon({
+        code: data.code,
+        discount_amount: Number(data.discount_amount || 0),
+      })
+      if (appliedVoucher && data.voucher_discount_amount !== undefined) {
+        setAppliedVoucher((current) => current
+          ? { ...current, discount_amount: Number(data.voucher_discount_amount || 0) }
+          : current)
+      }
+      setCoupon('')
+      setCouponMessage('Coupon applied successfully.')
+    } catch (error) {
+      setAppliedCoupon(null)
+      setCouponMessage(error.message || 'Invalid coupon code.')
+      refreshAppliedVoucher()
+    } finally {
+      setIsApplyingCoupon(false)
     }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCoupon('')
+    setCouponMessage('Coupon removed.')
+    refreshAppliedVoucher()
+  }
+
+  const handleApplyGiftVoucher = async () => {
+    const normalizedCode = giftVoucher.trim()
+
+    if (!normalizedCode) {
+      setVoucherMessage('Please enter a gift voucher code.')
+      return
+    }
+
+    setIsApplyingVoucher(true)
+    setVoucherMessage('')
+
+    try {
+      const data = await validateVoucherCode(normalizedCode, appliedCoupon?.code || '')
+
+      setAppliedVoucher({
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: Number(data.discount_value || 0),
+        discount_amount: Number(data.discount_amount || 0),
+      })
+      setGiftVoucher('')
+      setVoucherMessage('Gift voucher applied successfully.')
+    } catch (error) {
+      setAppliedVoucher(null)
+      setVoucherMessage(error.message || 'Invalid gift voucher code.')
+    } finally {
+      setIsApplyingVoucher(false)
+    }
+  }
+
+  const handleRemoveGiftVoucher = () => {
+    setAppliedVoucher(null)
+    setGiftVoucher('')
+    setVoucherMessage('Gift voucher removed.')
   }
 
   const handleConfirmOrder = async (e) => {
@@ -242,7 +379,10 @@ function Checkout() {
       payment_method: paymentMethod,
       delivery_method: deliveryMethod,
 
-      coupon: coupon.trim().toUpperCase(),
+      coupon: appliedCoupon?.code || '',
+      coupon_code: appliedCoupon?.code || '',
+      gift_voucher: appliedVoucher?.code || '',
+      gift_voucher_code: appliedVoucher?.code || '',
 
       items: checkoutItems.map((item) => ({
         product_id: item.id,
@@ -274,21 +414,23 @@ function Checkout() {
       )
     }
 
-    checkoutItems.forEach((item) => {
-      removeFromCart(item.id)
-    })
+    if (!isBuyNowCheckout) {
+      checkoutItems.forEach((item) => {
+        removeFromCart(item.id)
+      })
+    }
 
     navigate('/order-success', {
-  state: {
-    order: {
-      order_number: data.order_number,
-      payment_method: paymentMethod,
-      delivery_method: deliveryMethod,
-      total: data.total,
-      status: data.status,
-          },
+      state: {
+        order: {
+          order_number: data.order_number,
+          payment_method: paymentMethod,
+          delivery_method: deliveryMethod,
+          total: data.total,
+          status: data.status,
         },
-      })
+      },
+    })
   } catch (error) {
     console.error('ORDER ERROR:', error)
 
@@ -711,28 +853,7 @@ function Checkout() {
             {/* Coupon */}
             <div className="coupon-box">
 
-              <h3>Get Some Extra</h3>
-
-              <p>
-                Use coupon/voucher
-              </p>
-
-              <div className="coupon-buttons">
-                <button
-                  type="button"
-                  className="coupon-type active"
-                >
-                  ▣ Coupon
-                </button>
-
-                <button
-                  type="button"
-                  className="coupon-type"
-                  disabled
-                >
-                  Gift Voucher
-                </button>
-              </div>
+              <h3>Coupon</h3>
 
               <div className="coupon-input-row">
 
@@ -740,23 +861,73 @@ function Checkout() {
                   type="text"
                   placeholder="Promo / Coupon Code"
                   value={coupon}
-                  onChange={(e) =>
-                    setCoupon(e.target.value)
-                  }
+                  onChange={(e) => setCoupon(e.target.value)}
                 />
 
                 <button
                   type="button"
-                  onClick={handleCoupon}
+                  onClick={handleApplyCoupon}
+                  disabled={isApplyingCoupon}
                 >
-                  Apply
+                  {isApplyingCoupon ? 'Applying...' : 'Apply'}
                 </button>
 
               </div>
 
-              {couponApplied && (
-                <p className="coupon-success">
-                  ✓ TECH5 applied successfully
+              {appliedCoupon && (
+                <div className="coupon-success-row">
+                  <span>✓ {appliedCoupon.code} applied</span>
+                  <button type="button" onClick={handleRemoveCoupon}>Remove</button>
+                </div>
+              )}
+
+              {couponMessage && (
+                <p className={appliedCoupon ? 'coupon-success' : 'coupon-error'}>
+                  {couponMessage}
+                </p>
+              )}
+
+            </div>
+
+            {/* Gift Voucher */}
+            <div className="coupon-box">
+
+              <h3>Gift Voucher</h3>
+
+              <div className="coupon-input-row">
+
+                <input
+                  type="text"
+                  placeholder="Gift Voucher Code"
+                  value={giftVoucher}
+                  onChange={(e) => setGiftVoucher(e.target.value)}
+                />
+
+                <button
+                  type="button"
+                  onClick={handleApplyGiftVoucher}
+                  disabled={isApplyingVoucher}
+                >
+                  {isApplyingVoucher ? 'Applying...' : 'Apply'}
+                </button>
+
+              </div>
+
+              {appliedVoucher && (
+                <div className="coupon-success-row">
+                  <span>
+                    ✓ {appliedVoucher.code}
+                    {appliedVoucher.discount_type === 'percentage'
+                      ? ` (${appliedVoucher.discount_value}%)`
+                      : ''} applied
+                  </span>
+                  <button type="button" onClick={handleRemoveGiftVoucher}>Remove</button>
+                </div>
+              )}
+
+              {voucherMessage && (
+                <p className={appliedVoucher ? 'coupon-success' : 'coupon-error'}>
+                  {voucherMessage}
                 </p>
               )}
 
@@ -774,12 +945,27 @@ function Checkout() {
                 </strong>
               </div>
 
-              {couponApplied && (
+              {couponDiscountAmount > 0 && (
                 <div className="summary-row discount-row">
-                  <span>Discount:</span>
+                  <span>Coupon Discount:</span>
 
                   <strong>
-                    -৳{discountAmount.toFixed(2)}
+                    -৳{couponDiscountAmount.toFixed(2)}
+                  </strong>
+                </div>
+              )}
+
+              {giftVoucherDiscountAmount > 0 && (
+                <div className="summary-row discount-row">
+                  <span>
+                    Gift Voucher
+                    {appliedVoucher?.discount_type === 'percentage'
+                      ? ` (${appliedVoucher.discount_value}%)`
+                      : ''}:
+                  </span>
+
+                  <strong>
+                    -৳{giftVoucherDiscountAmount.toFixed(2)}
                   </strong>
                 </div>
               )}

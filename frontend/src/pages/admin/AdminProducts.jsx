@@ -56,7 +56,7 @@ export default function AdminProducts({ apiPrefix = '/api/admin', routeBase = '/
       ) : (
         <div className="admin-card table-card">
           <div className="table-wrap">
-            <table>
+            <table className="admin-products-table">
               <thead>
                 <tr>
                   <th>Image</th>
@@ -76,21 +76,25 @@ export default function AdminProducts({ apiPrefix = '/api/admin', routeBase = '/
                     <tr key={product.id}>
                       <td>
                         {product.images?.length ? (
-                          <img
-                            src={`http://127.0.0.1:8000${product.images.find((image) => image.is_primary)?.image || product.images[0].image}`}
-                            alt={product.name}
-                            className="admin-product-thumb"
-                          />
+                          <div className="admin-product-image-wrap">
+                            <img
+                              src={`http://127.0.0.1:8000${product.images.find((image) => image.is_primary)?.image || product.images[0].image}`}
+                              alt={product.name}
+                              className="admin-product-thumb"
+                            />
+                          </div>
                         ) : (
-                          <span className="admin-thumb-placeholder">No image</span>
+                          <div className="admin-product-image-wrap">
+                            <span className="admin-thumb-placeholder">No image</span>
+                          </div>
                         )}
                       </td>
-                      <td>{product.name}</td>
-                      <td>{product.category_name || product.category}</td>
-                      <td>{formatPrice(Number(product.price))}</td>
-                      <td>{product.stock}</td>
-                      <td>{product.is_active ? 'Active' : 'Inactive'}</td>
-                      <td>
+                      <td data-label="Name">{product.name}</td>
+                      <td data-label="Category">{product.category_name || product.category}</td>
+                      <td data-label="Price">{formatPrice(Number(product.price))}</td>
+                      <td data-label="Stock">{product.stock}</td>
+                      <td data-label="Status">{product.is_active ? 'Active' : 'Inactive'}</td>
+                      <td data-label="Action">
                         <Link to={`${routeBase}/products/edit/${product.id}`} className="mini-link">Edit</Link>
                       </td>
                     </tr>

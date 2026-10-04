@@ -37,12 +37,17 @@ import EditCategory from './pages/admin/EditCategory'
 import AdminCustomers from './pages/admin/AdminCustomers'
 import AdminCustomerDetail from './pages/admin/AdminCustomerDetail'
 import AdminEmployees from './pages/admin/AdminEmployees'
+import AdminGiftVouchers from './pages/admin/AdminGiftVouchers'
+import GiftVoucherForm from './pages/admin/GiftVoucherForm'
+import AdminProfile from './pages/admin/AdminProfile'
+import AdminChangePassword from './pages/admin/AdminChangePassword'
 import EmployeeLayout from './components/employee/EmployeeLayout'
 import EmployeeDashboard from './pages/employee/EmployeeDashboard'
 import EmployeeCategories from './pages/employee/EmployeeCategories'
 import Profile from './pages/Profile'
 import ProtectedRoute from './components/ProtectedRoute'
 import { formatPrice } from './utils/formatPrice'
+import { getCurrentRole } from './utils/auth'
 
 const categoryIcons = {
   electronics: '⚡',
@@ -92,6 +97,7 @@ function CategoryVisual({ category }) {
 }
 
 function Home() {
+  const isAdmin = getCurrentRole() === 'admin'
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
@@ -254,6 +260,14 @@ function Home() {
 
   return (
     <main>
+      {isAdmin ? (
+        <div className="home-admin-shortcut-wrap">
+          <Link to="/admin" className="home-admin-shortcut">
+            <span aria-hidden="true">▣</span>
+            Admin Dashboard
+          </Link>
+        </div>
+      ) : null}
 
       {/* =========================
           DYNAMIC HERO SLIDER
@@ -563,9 +577,14 @@ function AppShell() {
           <Route path="categories" element={<AdminCategories />} />
           <Route path="categories/add" element={<AddCategory />} />
           <Route path="categories/edit/:id" element={<EditCategory />} />
+          <Route path="gift-vouchers" element={<AdminGiftVouchers />} />
+          <Route path="gift-vouchers/add" element={<GiftVoucherForm />} />
+          <Route path="gift-vouchers/edit/:id" element={<GiftVoucherForm />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="customers/:id" element={<AdminCustomerDetail />} />
           <Route path="employees" element={<AdminEmployees />} />
+          <Route path="profile" element={<AdminProfile />} />
+          <Route path="change-password" element={<AdminChangePassword />} />
         </Route>
 
         <Route

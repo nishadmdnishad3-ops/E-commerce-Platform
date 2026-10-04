@@ -4,10 +4,22 @@ from .views import (
     CancelOrderAPIView,
     CreateOrderAPIView,
     MyOrdersAPIView,
+    ValidateCouponAPIView,
+    ValidateGiftVoucherAPIView,
 )
 
 
 urlpatterns = [
+    path(
+        'coupons/validate/',
+        ValidateCouponAPIView.as_view(),
+        name='validate-coupon'
+    ),
+    path(
+        'vouchers/validate/',
+        ValidateGiftVoucherAPIView.as_view(),
+        name='validate-gift-voucher'
+    ),
     path(
         'create/',
         CreateOrderAPIView.as_view(),
